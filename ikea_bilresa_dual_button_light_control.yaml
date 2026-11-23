@@ -21,6 +21,7 @@ blueprint:
 
     * **Button 2 double press:** Runs the actions configured under "Button 2 Action".
 
+
     *Lights listed under "Lights to Ignore" are excluded from all light actions.*
 
     > [!NOTE]
