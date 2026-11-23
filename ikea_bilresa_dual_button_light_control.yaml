@@ -1,0 +1,298 @@
+blueprint:
+  name: IKEA BILRESA Dual Button Light Controls
+  description: >-
+    A blueprint for an automation that controls the lights in an area via an IKEA BILRESA Dual Button switch that is assigned to the same area.
+    
+    > [!NOTE]
+
+    > When circling through multiple lighting scenes, Home Assistant will create one trace per click. The first trace is the relevant one. All following button presses will create another trace that immediatly ends because the automation is setup to run in `single` mode. Therefore, the maximum number of stored traces for generated automations is set to **20**.
+  author: Nuhser
+  domain: automation
+  homeassistant:
+    min_version: 2024.6.0
+  input:
+    button_device:
+      name: BILRESA Button Device
+      description: >-
+        A device representing an IKEA BILRESA Dual Button connected via Matter over Thread.
+
+        The button's area will be used to determine the area of which the lights should be controlled.
+      selector:
+        device:
+          entity:
+            domain: event
+            device_class: button
+          filter:
+            manufacturer: IKEA of Sweden
+            model: BILRESA dual button
+            integration: matter
+    scenes:
+      name: Lighting Scenes
+      description: >-
+        The lighting scenes which will be circled through by repeatedly clicking the top button of the BILRESA.
+
+        If omitted, the button will just turn on all the lights in the area except the ones that are ignored.
+      selector:
+        entity:
+          multiple: true
+          reorder: true
+          filter:
+            domain: scene
+      default: []
+    double_click_actions_section:
+      name: Double Click Actions
+      description: Additional actions that can be assigned to the double click of the buttons.
+      collapsed: true
+      input:
+        button1_action:
+          name: Button 1 Action
+          selector:
+            action:
+          default: []
+        button2_action:
+          name: Button 2 Action
+          selector:
+            action:
+          default: []
+    additional_settings_section:
+      name: Additional Settings
+      collapsed: true
+      input:
+        ignored_lights:
+          name: Lights to Ignore
+          description: Light entities in the area that should be ignored when dimming or turning off the lights.
+          selector:
+            entity:
+              multiple: true
+              filter:
+                domain: light
+          default: []
+trace:
+  stored_traces: 20
+max_exceeded: silent
+variables:
+  button_device: !input button_device
+  button1_event: "{{ device_entities(button_device) | select('match', '^event\\.') | select('match', '.*button_1$') | first }}"
+  button2_event: "{{ device_entities(button_device) | select('match', '^event\\.') | select('match', '.*button_2$') | first }}"
+  area: '{{ area_id(button_device) }}'
+  scenes: !input scenes
+triggers:
+  - trigger: event.received
+    target:
+      device_id: !input button_device
+    options:
+      event_type:
+        - multi_press_1
+    alias: Button 1 pressed
+    id: button_pressed
+  - trigger: event.received
+    target:
+      device_id: !input button_device
+    options:
+      event_type:
+        - long_press
+    alias: Button 1 held down
+    id: button_held_down
+  - trigger: event.received
+    target:
+      device_id: !input button_device
+    options:
+      event_type:
+        - multi_press_2
+    alias: Button 1 pressed twice
+    id: button_pressed_twice
+conditions: []
+actions:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id:
+              - button_pressed
+          - condition: template
+            value_template: '{{ trigger.entity_id == button1_event }}'
+        sequence:
+          - if:
+              - condition: template
+                value_template: '{{ (scenes | length) > 0}}'
+            then:
+              - variables:
+                  scene_idx: 0
+                  circle: true
+                alias: Initialize scene_idx and circle
+              - repeat:
+                  while:
+                    - condition: template
+                      value_template: '{{ circle }}'
+                  sequence:
+                    - action: scene.turn_on
+                      metadata: {}
+                      target:
+                        entity_id: '{{ scenes[scene_idx] }}'
+                      data: {}
+                    - variables:
+                        circle: false
+                      alias: Set circle to `false`
+                    - repeat:
+                        until:
+                          - condition: template
+                            value_template: '{{ wait.trigger.entity_id == button1_event }}'
+                        sequence:
+                          - wait_for_trigger:
+                              - trigger: event.received
+                                target:
+                                  device_id: !input button_device
+                                options:
+                                  event_type:
+                                    - multi_press_1
+                                alias: Button 1 pressed
+                            timeout:
+                              hours: 0
+                              minutes: 0
+                              seconds: 1
+                              milliseconds: 0
+                            continue_on_timeout: false
+                    - variables:
+                        scene_idx: >-
+                          {{ iif(scene_idx + 1 < (scenes | length), scene_idx + 1,
+                          0) }}
+                        circle: true
+                      alias: >-
+                        Increase scene_idx by 1 (reset back to 0 if larger than max
+                        index) and reset circle to `true`
+            else:
+              - action: light.turn_on
+                metadata: {}
+                target:
+                  area_id: '{{ area }}'
+                  exclude:
+                    entity_id: !input ignored_lights
+                data: {}
+      - conditions:
+          - condition: trigger
+            id:
+              - button_pressed
+          - condition: template
+            value_template: '{{ trigger.entity_id == button2_event }}'
+        sequence:
+          - action: light.turn_off
+            metadata: {}
+            target:
+              area_id: '{{ area }}'
+              exclude:
+                entity_id: !input ignored_lights
+            data: {}
+      - conditions:
+          - condition: trigger
+            id:
+              - button_held_down
+          - condition: template
+            value_template: '{{ trigger.entity_id == button1_event }}'
+        sequence:
+          - variables:
+              stop: false
+          - parallel:
+              - repeat:
+                  until:
+                    - condition: template
+                      value_template: '{{ stop }}'
+                  sequence:
+                    - action: light.turn_on
+                      metadata: {}
+                      target:
+                        area_id: '{{ area }}'
+                        exclude:
+                          entity_id: !input ignored_lights
+                      data:
+                        brightness_step_pct: 10
+                    - delay:
+                        hours: 0
+                        minutes: 0
+                        seconds: 0
+                        milliseconds: 500
+              - repeat:
+                  until:
+                    - condition: template
+                      value_template: '{{ stop }}'
+                  sequence:
+                    - wait_for_trigger:
+                        - trigger: event.received
+                          target:
+                            device_id: !input button_device
+                          options:
+                            event_type:
+                              - long_release
+                      timeout:
+                        hours: 0
+                        minutes: 0
+                        seconds: 30
+                        milliseconds: 0
+                      continue_on_timeout: true
+                    - condition: template
+                      value_template: '{{ wait.trigger.entity_id == button1_event }}'
+                    - variables:
+                        stop: true
+      - conditions:
+          - condition: trigger
+            id:
+              - button_held_down
+          - condition: template
+            value_template: '{{ trigger.entity_id == button2_event }}'
+        sequence:
+          - variables:
+              stop: false
+          - parallel:
+              - repeat:
+                  until:
+                    - condition: template
+                      value_template: '{{ stop }}'
+                  sequence:
+                    - action: light.turn_on
+                      metadata: {}
+                      target:
+                        area_id: '{{ area }}'
+                        exclude:
+                          entity_id: !input ignored_lights
+                      data:
+                        brightness_step_pct: -10
+                    - delay:
+                        hours: 0
+                        minutes: 0
+                        seconds: 0
+                        milliseconds: 500
+              - repeat:
+                  until:
+                    - condition: template
+                      value_template: '{{ stop }}'
+                  sequence:
+                    - wait_for_trigger:
+                        - trigger: event.received
+                          target:
+                            device_id: !input button_device
+                          options:
+                            event_type:
+                              - long_release
+                      timeout:
+                        hours: 0
+                        minutes: 0
+                        seconds: 30
+                        milliseconds: 0
+                      continue_on_timeout: true
+                    - condition: template
+                      value_template: '{{ wait.trigger.entity_id == button2_event }}'
+                    - variables:
+                        stop: true
+      - conditions:
+          - condition: trigger
+            id:
+              - button_pressed_twice
+          - condition: template
+            value_template: '{{ trigger.entity_id == button1_event }}'
+        sequence: !input button1_action
+      - conditions:
+          - condition: trigger
+            id:
+              - button_pressed_twice
+          - condition: template
+            value_template: '{{ trigger.entity_id == button2_event }}'
+        sequence: !input button2_action
+mode: single
