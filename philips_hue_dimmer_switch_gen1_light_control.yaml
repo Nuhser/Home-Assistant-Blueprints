@@ -1,0 +1,263 @@
+blueprint:
+  name: Philips Huw Dimmer Switch (Gen1) Light Controls
+  description: >-
+    ![banner image](https://github.com/Nuhser/Home-Assistant-Blueprints/blob/master/images/philips_hue_dimmer_v1_banner.png?raw=true)
+
+    A blueprint for an automation that controls the lights in an area via a Philips Hue Dimmer Switch (Gen 1) that is assigned to the same room.
+
+    The automation supports the following actions:
+
+    * **On-Button press:** Turns on all lights in the area. If lighting scenes are configured, activates the first scene instead.
+
+    * **On-Button press repeated within one second:** Cycles through the configured lighting scenes in order, wrapping back to the first scene after the last one. The cycle ends when no further press follows within one second.
+
+    * **Off-Button press:** Turns off all lights in the area.
+
+    * **Dimmer-Up-Button hold:** Brightens all lights in the area in steps of 10% until the button is released.
+
+    * **Dimmer-Down-Button hold:** Dims all lights in the area in steps of 10% until the button is released.
+
+    *Lights listed under "Lights to Ignore" are excluded from all light actions.*
+
+    > [!NOTE]
+
+    > When circling through multiple lighting scenes, Home Assistant will create one trace per click. The first trace is the relevant one. All following button presses will create another trace that immediatly ends because the automation is setup to run in `single` mode. Therefore, the maximum number of stored traces for generated automations is set to **20**.
+  author: Nuhser
+  domain: automation
+  homeassistant:
+    min_version: 2024.6.0
+  input:
+    dimmer_switch_device:
+      name: Philips Hue Dimmer Switch (Gen1)
+      description: >-
+        A device representing a Philips Hue Dimmer Switch (Gen1) connected to Home Assistant via Zigbee2MQTT.
+
+        The dimmer's are will be used to determine the area of which the lights should be controlled.
+      selector:
+        device:
+          filter:
+            manufacturer: Philips
+            model: Hue dimmer switch gen 1
+            integration: mqtt
+    scenes:
+      name: Lighting Scenes
+      description: >-
+        The lighting scenes which will be circled through by repeatedly clicking the ON-button of the dimmer switch.
+
+        If omitted, the button will just turn on all the lights in the area except the ones that are ignored.
+      selector:
+        entity:
+          multiple: true
+          reorder: true
+          filter:
+            domain: scene
+      default: []
+    additional_settings_section:
+      name: Additional Settings
+      collapsed: true
+      input:
+        ignored_lights:
+          name: Lights to Ignore
+          description: Light entities in the area that should be ignored when dimming or turning off the lights.
+          selector:
+            entity:
+              multiple: true
+              filter:
+                domain: light
+          default: []
+trace:
+  stored_traces: 20
+max_exceeded: silent
+variables:
+  dimmer_switch_device: !input dimmer_switch_device
+  area: '{{ area_id(dimmer_switch_device) }}'
+  scenes: !input scenes
+triggers:
+  - domain: mqtt
+    device_id: !input dimmer_switch_device
+    type: action
+    subtype: on_press
+    trigger: device
+    id: on_button_pressed
+    alias: On-Button Pressed
+  - domain: mqtt
+    device_id: !input dimmer_switch_device
+    type: action
+    subtype: off_press
+    trigger: device
+    alias: Off-Button Pressed
+    id: off_button_pressed
+  - domain: mqtt
+    device_id: !input dimmer_switch_device
+    type: action
+    subtype: up_hold
+    trigger: device
+    alias: Up-Button Held Down
+    id: up_button_held_down
+  - domain: mqtt
+    device_id: !input dimmer_switch_device
+    type: action
+    subtype: down_hold
+    trigger: device
+    alias: Down-Button Held Down
+    id: down_button_held_down
+conditions: []
+actions:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id:
+              - on_button_pressed
+        sequence:
+          - if:
+              - condition: template
+                value_template: '{{ (scenes | length) > 0}}'
+            then:
+              - variables:
+                  scene_idx: 0
+                  circle: true
+                alias: Initialize scene_idx and circle
+              - repeat:
+                  while:
+                    - condition: template
+                      value_template: '{{ circle }}'
+                  sequence:
+                    - action: scene.turn_on
+                      metadata: {}
+                      target:
+                        entity_id: '{{ scenes[scene_idx] }}'
+                      data: {}
+                    - variables:
+                        circle: false
+                      alias: Set circle to `false`
+                    - wait_for_trigger:
+                        - domain: mqtt
+                          device_id: !input dimmer_switch_device
+                          type: action
+                          subtype: on_press
+                          trigger: device
+                      timeout:
+                        hours: 0
+                        minutes: 0
+                        seconds: 1
+                        milliseconds: 0
+                      continue_on_timeout: false
+                    - variables:
+                        scene_idx: >-
+                          {{ iif(scene_idx + 1 < (scenes | length), scene_idx +
+                          1, 0) }}
+                        circle: true
+                      alias: >-
+                        Increase scene_idx by 1 (reset back to 0 if larger than
+                        max index) and reset circle to `true`
+            else:
+              - action: light.turn_on
+                metadata: {}
+                target:
+                  area_id: '{{ area }}'
+                  exclude:
+                    entity_id: !input ignored_lights
+                data: {}
+      - conditions:
+          - condition: trigger
+            id:
+              - off_button_pressed
+        sequence:
+          - action: light.turn_off
+            metadata: {}
+            target:
+              area_id: '{{ area }}'
+              exclude:
+                entity_id: !input ignored_lights
+            data: {}
+      - conditions:
+          - condition: trigger
+            id:
+              - up_button_held_down
+        sequence:
+          - variables:
+              stop: false
+          - parallel:
+              - repeat:
+                  until:
+                    - condition: template
+                      value_template: '{{ stop }}'
+                  sequence:
+                    - action: light.turn_on
+                      metadata: {}
+                      target:
+                        area_id: '{{ area }}'
+                        exclude:
+                          entity_id: !input ignored_lights
+                      data:
+                        brightness_step_pct: 10
+                    - delay:
+                        hours: 0
+                        minutes: 0
+                        seconds: 0
+                        milliseconds: 500
+              - repeat:
+                  until:
+                    - condition: template
+                      value_template: '{{ stop }}'
+                  sequence:
+                    - wait_for_trigger:
+                        - domain: mqtt
+                          device_id: !input dimmer_switch_device
+                          type: action
+                          subtype: up_hold_release
+                          trigger: device
+                      timeout:
+                        hours: 0
+                        minutes: 0
+                        seconds: 30
+                        milliseconds: 0
+                      continue_on_timeout: true
+                    - variables:
+                        stop: true
+      - conditions:
+          - condition: trigger
+            id:
+              - down_button_held_down
+        sequence:
+          - variables:
+              stop: false
+          - parallel:
+              - repeat:
+                  until:
+                    - condition: template
+                      value_template: '{{ stop }}'
+                  sequence:
+                    - action: light.turn_on
+                      metadata: {}
+                      target:
+                        area_id: '{{ area }}'
+                        exclude:
+                          entity_id: !input ignored_lights
+                      data:
+                        brightness_step_pct: -10
+                    - delay:
+                        hours: 0
+                        minutes: 0
+                        seconds: 0
+                        milliseconds: 500
+              - repeat:
+                  until:
+                    - condition: template
+                      value_template: '{{ stop }}'
+                  sequence:
+                    - wait_for_trigger:
+                        - domain: mqtt
+                          device_id: !input dimmer_switch_device
+                          type: action
+                          subtype: down_hold_release
+                          trigger: device
+                      timeout:
+                        hours: 0
+                        minutes: 0
+                        seconds: 30
+                        milliseconds: 0
+                      continue_on_timeout: true
+                    - variables:
+                        stop: true
+mode: single
