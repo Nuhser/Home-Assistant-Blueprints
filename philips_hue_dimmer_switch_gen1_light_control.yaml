@@ -1,5 +1,5 @@
 blueprint:
-  name: Philips Huw Dimmer Switch (Gen1) Light Controls
+  name: Philips Hue Dimmer Switch (Gen1) Light Controls
   description: >-
     ![banner image](https://github.com/Nuhser/Home-Assistant-Blueprints/blob/master/images/philips_hue_dimmer_v1_banner.png?raw=true)
 
