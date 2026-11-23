@@ -5,7 +5,7 @@ blueprint:
 
     A blueprint for an automation that controls the lights in an area via an IKEA BILRESA Dual Button switch that is assigned to the same area.
 
-    The automation supports the following actions. Lights listed under "Lights to Ignore" are excluded from all light actions.
+    The automation supports the following actions.
 
     * **Button 1 press:** Turns on all lights in the area. If lighting scenes are configured, activates the first scene instead.
 
@@ -20,6 +20,8 @@ blueprint:
     * **Button 1 double press:** Runs the actions configured under "Button 1 Action".
 
     * **Button 2 double press:** Runs the actions configured under "Button 2 Action".
+
+    *Lights listed under "Lights to Ignore" are excluded from all light actions.*
 
     > [!NOTE]
 
