@@ -1,7 +1,7 @@
 blueprint:
   name: IKEA BILRESA Dual Button Light Controls
   description: >-
-    ![banner image](/images/ikea_bilresa_banner.png)
+    ![banner image](https://github.com/Nuhser/Home-Assistant-Blueprints/blob/master/images/ikea_bilresa_banner.png?raw=true)
 
     A blueprint for an automation that controls the lights in an area via an IKEA BILRESA Dual Button switch that is assigned to the same area.
 
