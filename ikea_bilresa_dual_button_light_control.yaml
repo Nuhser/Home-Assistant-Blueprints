@@ -1,8 +1,10 @@
 blueprint:
   name: IKEA BILRESA Dual Button Light Controls
   description: >-
+    ![banner image](/images/ikea_bilresa_banner.png)
+
     A blueprint for an automation that controls the lights in an area via an IKEA BILRESA Dual Button switch that is assigned to the same area.
-    
+
     > [!NOTE]
 
     > When circling through multiple lighting scenes, Home Assistant will create one trace per click. The first trace is the relevant one. All following button presses will create another trace that immediatly ends because the automation is setup to run in `single` mode. Therefore, the maximum number of stored traces for generated automations is set to **20**.
