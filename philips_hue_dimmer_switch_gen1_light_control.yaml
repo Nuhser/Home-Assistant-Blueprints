@@ -17,6 +17,7 @@ blueprint:
 
     * **Dimmer-Down-Button hold:** Dims all lights in the area in steps of 10% until the button is released.
 
+
     *Lights listed under "Lights to Ignore" are excluded from all light actions.*
 
     > [!NOTE]
