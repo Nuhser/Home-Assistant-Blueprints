@@ -7,19 +7,19 @@ blueprint:
 
     The automation supports the following actions. Lights listed under "Lights to Ignore" are excluded from all light actions.
 
-    - **Button 1 press:** Turns on all lights in the area. If lighting scenes are configured, activates the first scene instead.
-    
-    - **Button 1 press repeated within one second:** Cycles through the configured lighting scenes in order, wrapping back to the first scene after the last one. The cycle ends when no further press follows within one second.
-    
-    - **Button 2 press:** Turns off all lights in the area.
-    
-    - **Button 1 hold:** Brightens all lights in the area in steps of 10% until the button is released.
-    
-    - **Button 2 hold:** Dims all lights in the area in steps of 10% until the button is released.
-    
-    - **Button 1 double press:** Runs the actions configured under "Button 1 Action".
-    
-    - **Button 2 double press:** Runs the actions configured under "Button 2 Action".
+    * **Button 1 press:** Turns on all lights in the area. If lighting scenes are configured, activates the first scene instead.
+
+    * **Button 1 press repeated within one second:** Cycles through the configured lighting scenes in order, wrapping back to the first scene after the last one. The cycle ends when no further press follows within one second.
+
+    * **Button 2 press:** Turns off all lights in the area.
+
+    * **Button 1 hold:** Brightens all lights in the area in steps of 10% until the button is released.
+
+    * **Button 2 hold:** Dims all lights in the area in steps of 10% until the button is released.
+
+    * **Button 1 double press:** Runs the actions configured under "Button 1 Action".
+
+    * **Button 2 double press:** Runs the actions configured under "Button 2 Action".
 
     > [!NOTE]
 
