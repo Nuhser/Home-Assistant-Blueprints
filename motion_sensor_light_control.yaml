@@ -1,0 +1,168 @@
+blueprint:
+  name: Motion Sensor Light Control
+  description: >-
+    ![banner image](https://github.com/Nuhser/Home-Assistant-Blueprints/blob/master/images/philips_hue_motion_sensor.png?raw=true)
+
+    A blueprint for an automation that controls the lights in an area via a motion sensor that is assigned to the same area.
+
+    The automation support the following actions:
+
+    * Turning on and off the lights in an area based on a motion sensor in the same area.
+
+    * Turning on a specific lighting scene when motion is detected.
+
+    * Specifying the time to wait after motion has cleared before turning off the lights.
+
+    * Using a different lighting scene between a specified start and end time (e.g. dimmed lighting during the night).
+
+
+    *Lights listed under "Lights to Ignore" are excluded from all light actions.*
+  author: Nuhser
+  domain: automation
+  homeassistant:
+    min_version: 2024.6.0
+  input:
+    motion_sensor:
+      name: Motion Sensor
+      description: >-
+        The motion sensor which will be used for the automation.
+
+        The sensor's area will be used to determine which lights should be controlled.
+      selector:
+        entity:
+          filter:
+            domain: binary_sensor
+            device_class: motion
+    scene:
+      name: Lighting Scene
+      description: >-
+        The lighting scene which will be turned on when the sensor detects motion.
+
+        If omitted, the motion sensor will just turn on all the lights in the area except the ones that are ignored.
+      default: null
+      selector:
+        entity:
+          filter:
+            domain: scene
+    night_mode_section:
+      name: Night Mode Settings
+      description: Night mode will use a different lighting scene between the specified start and end times if motion is detected. This is useful to prevent the motion controlled lights from blasting your eye balls if you trigger them at night.
+      collapsed: true
+      input:
+        use_night_mode:
+          name: Use Night Mode
+          description: If turned on, night mode will be used.
+          default: false
+          selector:
+            boolean:
+        night_mode_scene:
+          name: Lighting Scene
+          description: The lighting scene which will be turned on when night mode is enabled and the sensor detects motion.
+          selector:
+            entity:
+              filter:
+                domain: scene
+          visible:
+            field: use_night_mode
+            value: true
+        night_mode_start:
+          name: Start Time
+          description: The start time for night mode.
+          default: '22:30:00'
+          selector:
+            time:
+          visible:
+            field: use_night_mode
+            value: true
+        night_mode_end:
+          name: End Time
+          description: The end time for night mode.
+          default: '06:30:00'
+          selector:
+            time:
+          visible:
+            field: use_night_mode
+            value: true
+    additional_settings_section:
+      name: Additional Settings
+      collapsed: true
+      input:
+        ignored_lights:
+          name: Lights to Ignore
+          description: Light entities in the area that should be ignored when dimming or turning off the lights.
+          default: []
+          selector:
+            entity:
+              multiple: true
+              filter:
+                domain: light
+        timeout:
+          name: Motion Cleared Timeout
+          description: How long the automation waits after the motion cleared before turning off the lights again.
+          default: '00:02:00'
+          selector:
+            time:
+mode: single
+max_exceeded: silent
+variables:
+  motion_sensor: !input motion_sensor
+  area: '{{ area_id(motion_sensor) }}'
+  scene: !input scene
+  use_night_mode: !input use_night_mode
+  night_mode_scene: !input night_mode_scene
+triggers:
+  - trigger: motion.detected
+    target:
+      entity_id: !input motion_sensor
+    options:
+      behavior: each
+      for: '00:00:00'
+    id: motion_detected
+  - trigger: motion.cleared
+    target:
+      entity_id: !input motion_sensor
+    options:
+      behavior: each
+      for: !input timeout
+    id: motion_cleared
+conditions: []
+actions:
+  - if:
+      - condition: trigger
+        id:
+          - motion_detected
+    then:
+      - if:
+          - condition: template
+            value_template: '{{ use_night_mode }}'
+          - condition: time
+            after: !input night_mode_start
+            before: !input night_mode_end
+        then:
+          - action: scene.turn_on
+            metadata: {}
+            target:
+              entity_id: '{{ night_mode_scene }}'
+            data: {}
+        else:
+          - if:
+              - condition: template
+                value_template: '{{ scene != None }}'
+            then:
+              - action: scene.turn_on
+                metadata: {}
+                target:
+                  entity_id: !input scene
+                data: {}
+            else:
+              - action: light.turn_on
+                metadata: {}
+                target:
+                  area_id: '{{ area }}'
+                data: {}
+    else:
+      - action: light.turn_off
+        metadata: {}
+        target:
+          area_id: '{{ area }}'
+        data: {}
