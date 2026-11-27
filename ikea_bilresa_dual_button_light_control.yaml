@@ -9,7 +9,7 @@ blueprint:
 
     * **Button 1 press:** Turns on all lights in the area. If lighting scenes are configured, activates the first scene instead.
 
-    * **Button 1 press repeated within one second:** Cycles through the configured lighting scenes in order, wrapping back to the first scene after the last one. The cycle ends when no further press follows within one second.
+    * **Button 1 press repeated within 1.5 second:** Cycles through the configured lighting scenes in order, wrapping back to the first scene after the last one. The cycle ends when no further press follows within one second.
 
     * **Button 2 press:** Turns off all lights in the area.
 
