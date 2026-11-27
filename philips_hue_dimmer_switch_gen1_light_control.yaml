@@ -127,7 +127,8 @@ actions:
                       metadata: {}
                       target:
                         entity_id: '{{ scenes[scene_idx] }}'
-                      data: {}
+                      data:
+                        transition: 1
                     - variables:
                         circle: false
                       alias: Set circle to `false`
@@ -141,7 +142,7 @@ actions:
                         hours: 0
                         minutes: 0
                         seconds: 1
-                        milliseconds: 0
+                        milliseconds: 500
                       continue_on_timeout: false
                     - variables:
                         scene_idx: >-

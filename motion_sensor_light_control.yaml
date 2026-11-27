@@ -143,7 +143,8 @@ actions:
             metadata: {}
             target:
               entity_id: '{{ night_mode_scene }}'
-            data: {}
+            data:
+              transition: 1
         else:
           - if:
               - condition: template
@@ -153,7 +154,8 @@ actions:
                 metadata: {}
                 target:
                   entity_id: !input scene
-                data: {}
+                data:
+                  transition: 1
             else:
               - action: light.turn_on
                 metadata: {}
